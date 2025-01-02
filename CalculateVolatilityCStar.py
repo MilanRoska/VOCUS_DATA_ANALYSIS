@@ -9,6 +9,7 @@ based on code by Alexandra Tsimpidi
 
 # %% packages
 import re
+import numpy as np
 from collections import defaultdict
 
 # %% suport functions
@@ -95,10 +96,12 @@ def calc_vol(spc_eqn):
            vol = ((n0C-nC)*bC-nO*bO-2*(nC*nO/(nC+nO))*bCO-nN*bN-nS*bS)
         else:
             print('Br, Cl, I or F in forumla')
+            vol = np.nan
     else:
         print('no C and/or H in forumla')
+        vol = np.nan
     return vol
 
 # %% run example
-spc_eqn = 'C2H4O2'
+spc_eqn = 'C10H30O5'
 vol = calc_vol(spc_eqn)
