@@ -32,6 +32,40 @@ def atom_num(formula, atom):
     element_counts = parse_chemical_formula(formula)
     return element_counts[atom]
 
+# drop NH4+
+def modify_formula(formula: str, remove_h: int, remove_n: int) -> str:
+    # Step 1: Parse the formula for individual elements and their counts
+    element_pattern = r'([A-Z][a-z]?)(\d*)'
+    parsed_formula = re.findall(element_pattern, formula)
+    
+    # Step 2: Create a dictionary to store element counts
+    element_counts = {}
+    
+    for element, count in parsed_formula:
+        element_counts[element] = int(count) if count else 1
+    
+    # Step 3: Remove the specified number of hydrogen (H) and nitrogen (N) atoms
+    if 'H' in element_counts:
+        element_counts['H'] -= remove_h
+        if element_counts['H'] <= 0:
+            del element_counts['H']  # Remove the element if its count drops to 0 or below
+    
+    if 'N' in element_counts:
+        element_counts['N'] -= remove_n
+        if element_counts['N'] <= 0:
+            del element_counts['N']  # Remove the element if its count drops to 0 or below
+    
+    # Step 4: Rebuild the formula without the '+' sign
+    result_formula = ''
+    
+    for element, count in element_counts.items():
+        result_formula += element
+        if count > 1:
+            result_formula += str(count)
+    
+    return result_formula
+
+
 # %% main functions
 
 #calclate carbon oxidational state OSc
@@ -63,7 +97,7 @@ def calc_h_to_c(spc_eqn):
     return h_to_c
 
 # %% run example
-spc_eqn = 'CH4'
+spc_eqn = 'C10H30O5'
 osc = calc_osc(spc_eqn)
 o_to_c = calc_o_to_c(spc_eqn)
 
