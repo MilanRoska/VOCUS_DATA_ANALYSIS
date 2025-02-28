@@ -65,27 +65,58 @@ def load_hdf_file(input_file_full_name, compounds=None, all_compounds=True):
 #%% main functions
 
 #%%load ltof data
-#loads and concatenates data from several files in the same folder
-#files have to be of the same size (same nr of TS)!!!
+
 def load_ltof_data(input_file_path_ltof, compounds=None, all_compounds=True):
-    # Create an empty DataFrame to store the data
-    peak_data_df = pd.DataFrame()
-    
-    # iterate over all files in LTOF data folder
+    """
+    Loads and concatenates data from multiple HDF5 files in the same folder.
+    Ensures that all timestamps are preserved, filling missing values with NaN.
+    Handles duplicate index values to avoid 'InvalidIndexError'.
+    """
+    # Create a list to store DataFrames
+    dataframes = []
+
+    # Iterate over all files in the LTOF data folder
     for file_name in os.listdir(input_file_path_ltof):
-        #concat Path and Filename
+        # Construct the full path
         input_file_full_name = os.path.join(input_file_path_ltof, file_name)
-        #Load Datafile into DF
+
+        # Load the DataFrame from the HDF5 file
         peak_data_active_compounds_df = load_hdf_file(input_file_full_name, compounds, all_compounds)
-        #concat to big dataframe
-        try:
-            peak_data_df = pd.concat([peak_data_df, peak_data_active_compounds_df],ignore_index=False)
-        except pd.errors.InvalidIndexError as e:
-            print()
-            print(f"InvalidIndexError: {e}")
-            print("file "+file_name+" has a different number of time series then the previous file. Please correct using DropLastTSforHDFfiles.py")
-            
+
+        # Ensure index is in datetime format
+        if not isinstance(peak_data_active_compounds_df.index, pd.DatetimeIndex):
+            peak_data_active_compounds_df.index = pd.to_datetime(peak_data_active_compounds_df.index)
+
+        # Remove any duplicate timestamps before resetting the index
+        peak_data_active_compounds_df = peak_data_active_compounds_df[~peak_data_active_compounds_df.index.duplicated(keep="first")]
+
+        # Reset index to allow safe concatenation
+        peak_data_active_compounds_df = peak_data_active_compounds_df.reset_index()
+
+        # Append to list
+        dataframes.append(peak_data_active_compounds_df)
+
+    # Concatenate all DataFrames, preserving all timestamps
+    if dataframes:
+        peak_data_df = pd.concat(dataframes, axis=0, join='outer', ignore_index=True)
+
+        # Ensure index column exists
+        if "index" in peak_data_df.columns:
+            # Set back the DatetimeIndex after concatenation
+            peak_data_df = peak_data_df.set_index("index")
+
+        # Drop any duplicate timestamps again after merging
+        peak_data_df = peak_data_df[~peak_data_df.index.duplicated(keep="first")]
+
+        # Sort the index to maintain chronological order
+        peak_data_df = peak_data_df.sort_index()
+    else:
+        peak_data_df = pd.DataFrame()  # Return an empty DataFrame if no data is loaded
+
     return peak_data_df
+
+
+
 
 #%%load housekeeping data
 #loads and concatenates data from several files in the same folder
