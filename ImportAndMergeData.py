@@ -30,7 +30,7 @@ def load_hdf_file(input_file_full_name, compounds=None, all_compounds=True):
     masses = peak_table['mass'].tolist()[:]
     formulas = [byte.decode('utf-8') for byte in formulas]
     
-    time_stamp_0 = convert_ldap_timestamp(timing_data_grp.attrs['AcquisitionTimeZero'])
+    time_stamp_0 = convert_ldap_timestamp(timing_data_grp.attrs['AcquisitionTimeZero'], unit='s')
     peak_data = peak_data.reshape((peak_data.shape[0]*peak_data.shape[1],peak_data.shape[3]))
     buf_times = buf_times.reshape((buf_times.shape[0]*buf_times.shape[1]))
     buf_times = [time_stamp_0 + timedelta(seconds=seconds) for seconds in buf_times]
@@ -60,6 +60,7 @@ def load_hdf_file(input_file_full_name, compounds=None, all_compounds=True):
     if not isinstance(peak_data_active_compounds_df.index, pd.DatetimeIndex):
         peak_data_active_compounds_df.index = pd.to_datetime(peak_data_active_compounds_df.index)
     print(peak_data_active_compounds_df.index[0])
+    print(time_stamp_0)
     return peak_data_active_compounds_df
 
 #%% main functions
