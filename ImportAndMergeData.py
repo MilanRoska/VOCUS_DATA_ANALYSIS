@@ -3,6 +3,7 @@
 from Common_Functions.StandardSetupAndCommonFunctions import convert_ldap_timestamp
 
 import os
+import io
 import pandas as pd
 import numpy as np
 import h5py
@@ -137,6 +138,12 @@ def load_housekeeping_data(input_file_path_house_keeping):
     return house_keeping_df
 
 #%%Load MetNav data
+
+def clean_file_remove_tabs(original_path, cleaned_path):
+    with open(original_path, 'r', encoding='utf-8') as infile, open(cleaned_path, 'w', encoding='utf-8') as outfile:
+        for line in infile:
+            outfile.write(line.replace('\t', ''))
+
 #highly custonized import due to individual data structure
 
 def load_met_nav_data(input_file_path_met_nav, Metric=True):
@@ -156,9 +163,13 @@ def load_met_nav_data(input_file_path_met_nav, Metric=True):
             if col_name.startswith(prefix):
                 return prefix  # Return the prefix as the new column name
         return col_name  # Return the original name if no prefix matches
-
+    
+    # Step 1: Clean file and remove all tabs
+    cleaned_path = input_file_path_met_nav + ".cleaned"
+    clean_file_remove_tabs(input_file_path_met_nav, cleaned_path)
+    
     # Read the .ict file into a pandas DataFrame
-    met_nav_df = pd.read_csv(input_file_path_met_nav, delimiter='\t')
+    met_nav_df = pd.read_csv(cleaned_path, delimiter='\t')
 
     # Access the date and convert to datetime object
     entry_str = met_nav_df.iloc[5, 0]
@@ -210,3 +221,51 @@ def load_met_nav_data(input_file_path_met_nav, Metric=True):
     met_nav_df['MetNav time'] = met_nav_df.index
     
     return met_nav_df
+
+
+def load_env_flag_data(input_file_path_env_flag):
+
+    # Specified prefixes
+    columns_to_keep = ['Time_Start', 'leg_number', 'profile_number', 'BB_key', 'boundary_layer_key', 'urban_plume_key']
+
+    # Read the .ict file into a pandas DataFrame
+    env_flag_df = pd.read_csv(input_file_path_env_flag, delimiter='\t')
+
+    # Access the date and convert to datetime object
+    entry_str = env_flag_df.iloc[5, 0]
+    # Split the string based on commas
+    parts = entry_str.split(',')
+    # Extract year, month, and day
+    year = int(parts[0])
+    month = int(parts[1])
+    day = int(parts[2])
+    # Convert to datetime format
+    date_time_obj = datetime(year, month, day)
+    
+    #Drop all rows before the data starts
+    env_flag_df = env_flag_df.loc[36:]
+    # Split into separate columns by seperating between commas
+    env_flag_df = env_flag_df.iloc[:, 0].str.split(',', expand=True)
+    # Move the first row values as column names
+    env_flag_df.columns = env_flag_df.iloc[0]
+    # Drop the first row
+    env_flag_df.drop(env_flag_df.index[0], inplace=True)
+
+    # Remove spaces from column labels
+    env_flag_df.rename(columns=lambda x: x.replace(' ', ''), inplace=True)
+    # Convert all entries to float format
+    env_flag_df = env_flag_df.astype(float)
+    # convert the 'Time_Start' columninto datetime fromat
+    env_flag_df['Time_Start'] = date_time_obj + env_flag_df['Time_Start'].apply(lambda x: timedelta(seconds=x))
+
+    #finter out only TS that are in all datasets
+    filtered_columns = [col for col in env_flag_df.columns if any(col.startswith(prefix) for prefix in columns_to_keep)]
+    # Creating a new DataFrame with only the filtered columns
+    env_flag_df = env_flag_df[filtered_columns]
+
+    # Set the 'Time_Start' column as the index
+    env_flag_df.set_index('Time_Start', inplace=True)
+    #make a copy of the time for checking after merging
+    env_flag_df['EnvFlag time'] = env_flag_df.index
+    
+    return env_flag_df
