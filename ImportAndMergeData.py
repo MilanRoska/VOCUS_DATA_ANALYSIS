@@ -64,6 +64,78 @@ def load_hdf_file(input_file_full_name, compounds=None, all_compounds=True):
     print(time_stamp_0)
     return peak_data_active_compounds_df
 
+
+def load_tps_from_raw_old(file_path):
+    #load file
+    current_file = h5py.File(file_path, 'r')
+    #open groups
+    tps_data_grp = current_file['TPS2']
+    timing_data_grp = current_file['TimingData']
+    #load data from groups
+    tps_data = np.array(tps_data_grp['TwData'])
+    buf_times = np.array(timing_data_grp['BufTimes'])
+    tps_labels = tps_data_grp['TwInfo']
+    # conert time
+    time_stamp_0 = convert_ldap_timestamp(timing_data_grp.attrs['AcquisitionTimeZero'], unit='s')
+    # reshape buffs
+    tps_data = tps_data.reshape((tps_data.shape[0]*tps_data.shape[1],tps_data.shape[2]))
+    buf_times = buf_times.reshape((buf_times.shape[0]*buf_times.shape[1]))
+    # convert time
+    buf_times = [time_stamp_0 + timedelta(seconds=seconds) for seconds in buf_times]
+    #gather Data in DF
+    tps_data_df = pd.DataFrame(data=tps_data, columns=tps_labels)
+    # make buf times the index
+    tps_data_df['BufTimes'] = buf_times
+    tps_data_df.set_index('BufTimes', inplace=True)
+    # decode labels
+    tps_data_df.columns = [col.decode('latin1') if isinstance(col, bytes) else str(col) for col in tps_data_df.columns]
+    # Convert the index to pandas datetime format
+    if not isinstance(tps_data_df.index, pd.DatetimeIndex):
+        tps_data_df.index = pd.to_datetime(tps_data_df.index)
+    return tps_data_df
+
+def load_tps_from_raw(file_path):
+    import h5py
+    import numpy as np
+    import pandas as pd
+    from datetime import timedelta
+
+    # Load file
+    current_file = h5py.File(file_path, 'r')
+
+    # Open groups
+    tps_data_grp = current_file['TPS2']
+    timing_data_grp = current_file['TimingData']
+
+    # Load data from groups
+    tps_data = np.array(tps_data_grp['TwData'])
+    buf_times = np.array(timing_data_grp['BufTimes'])
+    tps_labels = tps_data_grp['TwInfo']
+
+    # Convert time zero
+    time_stamp_0 = convert_ldap_timestamp(timing_data_grp.attrs['AcquisitionTimeZero'], unit='s')
+
+    # Reshape buffers
+    tps_data = tps_data.reshape((tps_data.shape[0] * tps_data.shape[1], tps_data.shape[2]))
+    buf_times = buf_times.reshape(-1)
+
+    # Convert to native Python datetime list
+    buf_times = [time_stamp_0 + timedelta(seconds=float(s)) for s in buf_times]
+
+    # Gather data in DataFrame
+    tps_data_df = pd.DataFrame(data=tps_data, columns=tps_labels)
+
+    # Decode labels
+    tps_data_df.columns = [col.decode('latin1') if isinstance(col, bytes) else str(col) for col in tps_data_df.columns]
+
+    # Set index to native datetime objects (NOT a DatetimeIndex)
+    tps_data_df['BufTimes'] = buf_times
+    tps_data_df.index = pd.Series(buf_times, dtype='object')  # This prevents automatic conversion to DatetimeIndex
+    tps_data_df.drop(columns='BufTimes', inplace=True)
+
+    return tps_data_df
+
+
 #%% main functions
 
 #%%load ltof data
